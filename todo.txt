@@ -1,0 +1,17 @@
+Bug:
+Fix on floor collison move up which makes ceiling collison make move down(cycle to crash).
+Fix side collision with other static tetrominoes should not happen.
+
+Feature:
+1:
+Optimise key pressing code.
+Improve graphics.
+Shuffle tetrominoes(semi-random).
+
+Add ui.
+Add "next tetromino" ui.
+Add levels
+Add animation on filled row.
+
+
+
