@@ -9,6 +9,9 @@
 #define NUMBER_OF_TETROMINOES 7
 #define TILES_PER_TETROMINO 4
 
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 Tile spawn[NUMBER_OF_TETROMINOES][TILES_PER_TETROMINO] = 
 {
     // First member is the center of location (First two for "I")
@@ -33,28 +36,30 @@ Tetromino* spawnTetromino()
         t->tiles[i].x += 3;
     }
 
-    printf("Spawned Tetromino\n");
     return t;
 }
 
-bool moveTetromino(Tetromino* t, Direction d)
+bool moveTetromino(Tetromino* t, Direction d, int distance)
 {
     Tetromino temp = *t;
     for(int i = 0; i < TILES_PER_TETROMINO; ++i)
     {
         if (d == DOWN)
-            t->tiles[i].y++;
+            t->tiles[i].y += distance;
         else if(d == UP)
-            t->tiles[i].y--;
+            t->tiles[i].y -= distance;
         else if(d == LEFT)
-            t->tiles[i].x--;
+            t->tiles[i].x -= distance;
         else if(d == RIGHT)
-            t->tiles[i].x++;
+            t->tiles[i].x += distance;
     }
 
-    int coll = checkCollision(&temp, t);
-    printf("%d\n", coll);
-    if (coll != -1) {
+    CollInfo collInfo = checkCollision(&temp, t);
+    printf("IsCollison: %d Direction:%d Depth:%d\n ",
+            collInfo.isCollision,
+            collInfo.d,
+            collInfo.depth);
+    if (collInfo.isCollision == true) {
         if (d == LEFT || d == RIGHT) {
             *t = temp;
             return false;
@@ -118,7 +123,13 @@ void rotateTetromino(Tetromino* t)
         outerTile->x = centerTile.x + deltaY;
     }
 
-    auto coll = checkCollision(&temp, t);
+    CollInfo collInfo = checkCollision(&temp, t);
+    printf("RotateCollison: %d Direction:%d Depth:%d\n ",
+            collInfo.isCollision,
+            collInfo.d,
+            collInfo.depth);
+    /*
+    CollInfo collInfo = checkCollision(&temp, t);
     printf("Rotate collision: %d\n", coll);
     if (coll != -1) {
         Direction d;
@@ -134,21 +145,8 @@ void rotateTetromino(Tetromino* t)
             *t = temp;
         }
     }
-
-    /*
-    Direction collision = checkCollision(t);
-    if (collision != -1) {
-        while(collision != -1) {
-            if (colision == LEFT) {
-                moveTetromino(t, RIGHT);
-            }
-            esle if (colision == RIGHT) {
-                moveTetromino(t, RIGHT);
-            }
-        }
-    }
     */
-    //checkAndResolveCollision(t);
+
 }
 
 /*
@@ -187,62 +185,94 @@ void checkAndResolveCollision(Tetromino* t) {
 */
 
 CollInfo checkCollision(Tetromino* ot, Tetromino* t) {
-    bool left = false, right = false, up = false, down = false;
+    // Index of tiles which collide: 1 - with wall, 2 - with static tile
+    CollInfo collInfo;
+    collInfo.isCollision = false;
+    int collTiles[4] = {0, 0, 0, 0};
     for (int i = 0; i < TILES_PER_TETROMINO; ++i) {
         int tileX = t->tiles[i].x;
         int tileY = t->tiles[i].y;
-        if (tileX < 0)
-            left = true;
-        else if (tileX > GAME_WIDTH - 1)
-            right = true;
-        else if (tileY > GAME_HEIGHT - 1)
-            up = true;
+        if (tileX < 0 || tileX > GAME_WIDTH - 1 
+                || tileY > GAME_HEIGHT - 1) {
+            collTiles[i] = 1;
+            collInfo.isCollision = true;
 
-        // Check if hit static tiles
+        }
         if (grid[tileY][tileX] != 0) {
-            // Compare to all original tiles to determine direction.
-            bool leftFromOrigTiles = true;
-            bool rightFromOrigTiles = true;
-            bool upFromOrigTiles = true;
-            bool downFromOrigTiles = true;
+            collInfo.isCollision = true;
+            collTiles[i] = 1;
+        }
+    }
+
+    if(collInfo.isCollision == false)
+        return collInfo;
+
+    // Determine direction
+    Direction dir;
+    bool left = true, right = true, up = true, down = true;
+    for (int i = 0; i < TILES_PER_TETROMINO; ++i) {
+        if (collTiles[i] != 0) {
+            int newTileX = t->tiles[i].x;
+            int newTileY = t->tiles[i].y;
+            //bool newTileLeft = true, newTileRight = true;
+            //bool newTileUp = true, newTileDown = true;
             for (int j = 0; j < TILES_PER_TETROMINO; ++j) {
                 int origTileX = ot->tiles[j].x;
                 int origTileY = ot->tiles[j].y;
 
-                if (!(tileX < origTileX))
-                    leftFromOrigTiles = false;
-                if (!(tileX > origTileX))
-                    rightFromOrigTiles = false;
-                if (!(tileY < origTileY))
-                    upFromOrigTiles = false;
-                if (!(tileY > origTileY))
-                    downFromOrigTiles = false;
+                if (!(newTileX < origTileX))
+                    left = false;
+                if (!(newTileX > origTileX))
+                    right = false;
+                if (!(newTileY < origTileY))
+                    up = false;
+                if (!(newTileY > origTileY))
+                    down = false;
             }
-            if (leftFromOrigTiles)
-                left = true;
-            if (rightFromOrigTiles)
-                right = true;
-            if (upFromOrigTiles)
-                up = true;
-            if (downFromOrigTiles)
-                down = true;
         }
-    } 
+    }
 
-    if(left && right)
-        return STATIC_OMNI;
-    if(up && down)
-        return STATIC_OMNI;
     if(left)
-        return STATIC_LEFT;
-    if(right)
-        return STATIC_RIGHT;
-    if(up)
-        return STATIC_UP;
-    if(down)
-        return STATIC_DOWN;
+        collInfo.d = LEFT;
+    else if (right)
+        collInfo.d = RIGHT;
+    else if (up)
+        collInfo.d = RIGHT;
+    else if (down)
+        collInfo.d = RIGHT;
+    else
+        collInfo.d = -1;
 
-    return -1;
+    // Find collison depth
+    int min = 10000, max = 0;
+    if (left || right) {
+        for (int i = 0; i < TILES_PER_TETROMINO; ++i) {
+            if (collTiles[i] != 0) {
+                int tileX = t->tiles[i].x;
+                if (tileX < min)
+                    min = tileX;
+                if (tileX > max)
+                    max = tileX;
+            }
+        }
+    }
+    else if (up || down) {
+        for (int i = 0; i < TILES_PER_TETROMINO; ++i) {
+            if (collTiles[i] != 0) {
+                int tileY = t->tiles[i].y;
+                if (tileY < min)
+                    min = tileY;
+                if (tileY > max)
+                    max = tileY;
+            }
+        }
+    }
+    printf("Depth calculation: min:%d max:%d ", min, max);
+    collInfo.depth = abs(max - min) + 1;
+
+
+
+    return collInfo;
 }
 
 void renderTetromino(Tetromino* t, SDL_Renderer* r, SDL_Texture* texture)

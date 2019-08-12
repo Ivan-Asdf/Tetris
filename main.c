@@ -59,7 +59,7 @@ int main()
         // Horizontal movement
         if (SDL_GetTicks() - hMoveTick >= HORIZONTAL_SPEED) {
             if (hMove != -1) {
-                moveTetromino(tetro, hMove);
+                moveTetromino(tetro, hMove, 1);
                 hMoveTick = SDL_GetTicks();
             }
         }
@@ -87,11 +87,11 @@ int main()
 
             if (event.type == SDL_KEYDOWN) {
                 if (event.key.keysym.sym == SDLK_UP)
-                    moveTetromino(tetro, UP);
+                    moveTetromino(tetro, UP, 1);
                 if (event.key.keysym.sym == SDLK_SPACE)
                     rotateTetromino(tetro);
                 if (event.key.keysym.sym == SDLK_DOWN)
-                    moveTetromino(tetro, DOWN);
+                    moveTetromino(tetro, DOWN, 1);
             }
 
         }

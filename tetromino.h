@@ -42,12 +42,13 @@ typedef enum {
 } CollisionDirection;
 
 typedef struct {
-    int xDepth;
-    int yDepth;
+    bool isCollision;
+    Direction d;
+    int depth;
 } CollInfo;
 
 
-bool moveTetromino(Tetromino* t, Direction d);
+bool moveTetromino(Tetromino* t, Direction d, int distance);
 void rotateTetromino(Tetromino* t);
 void checkAndResolveCollision(Tetromino* t);
 CollInfo checkCollision(Tetromino* ot, Tetromino* t);
