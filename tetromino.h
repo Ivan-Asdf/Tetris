@@ -1,3 +1,4 @@
+#pragma once
 
 typedef struct
 {
@@ -13,43 +14,19 @@ typedef enum
     Z,
     S,
     O
-} TetronimoType;
+} TetrominoType;
 
 typedef struct {
     Tile tiles[4];
-    TetronimoType  type;
+    TetrominoType  type;
+    int rotationState;
 } Tetromino;
 
 Tetromino* spawnTetromino();
 
-typedef enum {
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT
-} Direction;
+void moveTetromino(Tetromino* t, int x, int y);
+static void moveTetrominoNoColl(Tetromino* t, int xOffset, int yOffset);
+void rotateTetromino(Tetromino* t, bool clockwise);
+bool checkCollision(Tetromino* t);
 
-typedef enum {
-    WALL_LEFT = 0,
-    WALL_RIGHT,
-    WALL_DOWN,
-    STATIC_LEFT = 10,
-    STATIC_RIGHT,
-    STATIC_DOWN,
-    STATIC_UP,
-    STATIC_OMNI
-
-} CollisionDirection;
-
-typedef struct {
-    bool isCollision;
-    Direction d;
-    int depth;
-} CollInfo;
-
-
-bool moveTetromino(Tetromino* t, Direction d, int distance);
-void rotateTetromino(Tetromino* t);
-void checkAndResolveCollision(Tetromino* t);
-CollInfo checkCollision(Tetromino* ot, Tetromino* t);
 void renderTetromino(Tetromino* t, SDL_Renderer* r, SDL_Texture* texture);

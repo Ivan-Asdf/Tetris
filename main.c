@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <limits.h>
 
 #include "SDL2/SDL.h"
 
@@ -9,10 +10,13 @@
 #define FPS 60
 #define NORMAL_SPEED 800
 #define FAST_SPEED 50
-#define HORIZONTAL_SPEED 150
+#define HORIZONTAL_SPEED 70
+#define DAS_DELAY 250
 
 #define WINDOW_WIDTH GAME_WIDTH*TILE_SIZE
 #define WINDOW_HEIGHT GAME_HEIGHT*TILE_SIZE
+
+bool debug = true;
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
@@ -27,56 +31,22 @@ void capFramerate(Uint32 startTick);
 int main()
 {
     initGame();
-    Tetromino* tetro = spawnTetromino();
+    Tetromino* t = spawnTetromino();
 
     Uint32 startFrameTick;
     Uint32 vMoveTick = SDL_GetTicks();
     Uint32 hMoveTick = SDL_GetTicks();
-    int hMove = -1;
-    bool keyDown = false;
-    bool fastSpeed = false;
-    bool moveTetro = false;
+    Uint32 dasDelayTick = ULONG_MAX;
+
+    bool upPressed = false;
+    bool downPressed = false;
+    bool leftPressed = false;
+    bool rightPressed = false;
+
+    int xMove = 0;
 
     while (1) {
         startFrameTick = SDL_GetTicks();
-
-        // Downward movement 
-        if (!fastSpeed && 
-                SDL_GetTicks() - vMoveTick >= NORMAL_SPEED)
-            moveTetro = true;
-        else if (fastSpeed && 
-                SDL_GetTicks() - vMoveTick >= FAST_SPEED)
-            moveTetro = true;
-
-        /*
-        if (moveTetro) {
-            moveTetromino(tetro, DOWN);
-            vMoveTick = SDL_GetTicks();
-            moveTetro = false;
-        }
-        */
-
-        // Horizontal movement
-        if (SDL_GetTicks() - hMoveTick >= HORIZONTAL_SPEED) {
-            if (hMove != -1) {
-                moveTetromino(tetro, hMove, 1);
-                hMoveTick = SDL_GetTicks();
-            }
-        }
-
-        // Key hold press handling
-        fastSpeed = false;
-        Uint8* state = SDL_GetKeyboardState(NULL);
-        if (state[SDL_SCANCODE_DOWN])
-            fastSpeed = true;
-
-        if ((state[SDL_SCANCODE_LEFT] && state[SDL_SCANCODE_RIGHT]) 
-                || (!state[SDL_SCANCODE_LEFT] && !state[SDL_SCANCODE_RIGHT]))
-            hMove = -1;
-        else if (state[SDL_SCANCODE_LEFT])
-            hMove = LEFT;
-        else if (state[SDL_SCANCODE_RIGHT])
-            hMove = RIGHT;
 
         // Event handling
         SDL_Event event;
@@ -84,28 +54,85 @@ int main()
 
             if(event.type == SDL_QUIT)
                 return exitGame();
+            else if (event.type == SDL_KEYDOWN) {
+                if(event.key.repeat == 0) {
+                    if (event.key.keysym.sym == SDLK_UP)
+                        upPressed = true;
+                    if (event.key.keysym.sym == SDLK_DOWN) {
+                        downPressed = true;
+                    }
+                    if (event.key.keysym.sym == SDLK_LEFT) {
+                        leftPressed = true;
+                        moveTetromino(t, -1, 0);
+                    }
+                    if (event.key.keysym.sym == SDLK_RIGHT) {
+                        rightPressed = true;
+                        moveTetromino(t, 1, 0);
+                    }
+                    if(leftPressed || rightPressed)
+                        dasDelayTick = SDL_GetTicks();
 
-            if (event.type == SDL_KEYDOWN) {
-                if (event.key.keysym.sym == SDLK_UP)
-                    moveTetromino(tetro, UP, 1);
-                if (event.key.keysym.sym == SDLK_SPACE)
-                    rotateTetromino(tetro);
-                if (event.key.keysym.sym == SDLK_DOWN)
-                    moveTetromino(tetro, DOWN, 1);
+                    if (event.key.keysym.sym == SDLK_x)
+                        rotateTetromino(t, true);
+                    else if (event.key.keysym.sym == SDLK_z)
+                        rotateTetromino(t, false);
+                }
             }
+            else if (event.type == SDL_KEYUP) {
+                if (event.key.keysym.sym == SDLK_UP)
+                    upPressed = false;
+                if (event.key.keysym.sym == SDLK_DOWN)
+                    downPressed = false;
+                if (event.key.keysym.sym == SDLK_LEFT)
+                    leftPressed = false;
+                if (event.key.keysym.sym == SDLK_RIGHT)
+                    rightPressed = false;
+                if(!leftPressed && !rightPressed)
+                    dasDelayTick = ULONG_MAX;
+            }
+        }
 
+        // Downward movement 
+        bool moveTetro = false;
+        if (!downPressed && 
+                SDL_GetTicks() - vMoveTick >= NORMAL_SPEED)
+            moveTetro = true;
+        else if (downPressed && 
+                SDL_GetTicks() - vMoveTick >= FAST_SPEED)
+            moveTetro = true;
+
+        if (moveTetro) {
+            moveTetromino(t, 0, 1);
+            vMoveTick = SDL_GetTicks();
+        }
+
+        // Horizontal movement
+        if ((leftPressed && rightPressed) 
+                || (!leftPressed && !rightPressed))
+            xMove = 0;
+        else if (leftPressed)
+            xMove = -1;
+        else if (rightPressed)
+            xMove = +1;
+
+        if (SDL_GetTicks() - dasDelayTick >= DAS_DELAY) {
+            if (SDL_GetTicks() - hMoveTick >= HORIZONTAL_SPEED) {
+                if (xMove != 0) {
+                    moveTetromino(t, xMove, 0);
+                    hMoveTick = SDL_GetTicks();
+                }
+            }
         }
 
         checkForFilledRow();
 
         SDL_RenderClear(renderer);
         renderWorld(renderer, tileTexture);
-        renderTetromino(tetro, renderer, tileTexture);
+        renderTetromino(t, renderer, tileTexture);
         SDL_RenderPresent(renderer);
 
         capFramerate(startFrameTick);
     }
-
 }
 
 void initGame()
