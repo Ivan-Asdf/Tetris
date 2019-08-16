@@ -42,30 +42,30 @@ Tetromino* spawnTetromino()
     return t;
 }
 
-void moveTetromino(Tetromino* t, int x, int y)
+void moveTetromino(Tetromino** pt, int x, int y)
 {
-    Tetromino temp = *t;
-    moveTetrominoNoColl(t, x, y);
+    Tetromino temp = **pt;
+    moveTetrominoNoColl(*pt, x, y);
 
     // Hit locked tiles
-    if(y > 0 && checkCollision(t)) {
+    if(y > 0 && checkCollision(*pt)) {
         // Lock tetromino tiles
         for (int i = 0; i < TILES_PER_TETROMINO; ++i) { 
-            int tileX = t->tiles[i].x;
-            int tileY = t->tiles[i].y;
+            int tileX = (*pt)->tiles[i].x;
+            int tileY = (*pt)->tiles[i].y;
             printf("Lock tile: (%d %d)\n", tileX, tileY);
             if (tileY < 0) {
                 printf("GameOver\n");
                 exit(0);
             }
-            grid[temp.tiles[i].y][temp.tiles[i].x] = t->type+1;
+            grid[temp.tiles[i].y][temp.tiles[i].x] = (*pt)->type+1;
         }
-        // Spawn new tetrominoe
-        free(t);
-        t = spawnTetromino();
+        // Spawn new tetromino
+        free(*pt);
+        *pt = spawnTetromino();
     }
-    else if(checkCollision(t))
-        *t = temp;
+    else if(checkCollision(*pt))
+        **pt = temp;
 }
 
 static void moveTetrominoNoColl(Tetromino* t, int xOffset, int yOffset) {

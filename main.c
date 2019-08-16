@@ -16,8 +16,6 @@
 #define WINDOW_WIDTH GAME_WIDTH*TILE_SIZE
 #define WINDOW_HEIGHT GAME_HEIGHT*TILE_SIZE
 
-bool debug = true;
-
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 SDL_Texture* tileTexture = NULL;
@@ -28,7 +26,7 @@ int exitGame();
 SDL_Texture* loadTexture(char* path);
 void capFramerate(Uint32 startTick);
 
-int main()
+int main(int argc, char* argv[])
 {
     initGame();
     Tetromino* t = spawnTetromino();
@@ -55,19 +53,18 @@ int main()
             if(event.type == SDL_QUIT)
                 return exitGame();
             else if (event.type == SDL_KEYDOWN) {
-                if(event.key.repeat == 0) {
-                    if (event.key.keysym.sym == SDLK_UP)
-                        upPressed = true;
-                    if (event.key.keysym.sym == SDLK_DOWN) {
+				if (event.key.repeat == 0) {
+					if (event.key.keysym.sym == SDLK_UP)
+						upPressed = true;
+                    if (event.key.keysym.sym == SDLK_DOWN)
                         downPressed = true;
-                    }
                     if (event.key.keysym.sym == SDLK_LEFT) {
                         leftPressed = true;
-                        moveTetromino(t, -1, 0);
+                        moveTetromino(&t, -1, 0);
                     }
                     if (event.key.keysym.sym == SDLK_RIGHT) {
                         rightPressed = true;
-                        moveTetromino(t, 1, 0);
+                        moveTetromino(&t, 1, 0);
                     }
                     if(leftPressed || rightPressed)
                         dasDelayTick = SDL_GetTicks();
@@ -102,7 +99,7 @@ int main()
             moveTetro = true;
 
         if (moveTetro) {
-            moveTetromino(t, 0, 1);
+            moveTetromino(&t, 0, 1);
             vMoveTick = SDL_GetTicks();
         }
 
@@ -118,7 +115,7 @@ int main()
         if (SDL_GetTicks() - dasDelayTick >= DAS_DELAY) {
             if (SDL_GetTicks() - hMoveTick >= HORIZONTAL_SPEED) {
                 if (xMove != 0) {
-                    moveTetromino(t, xMove, 0);
+                    moveTetromino(&t, xMove, 0);
                     hMoveTick = SDL_GetTicks();
                 }
             }
@@ -166,10 +163,10 @@ SDL_Texture* loadTexture(char* path)
 {
     SDL_Surface* s = SDL_LoadBMP(path);
     if (s == NULL)
-        printf("Failed to laod surface\n");
+        printf("%s\n", SDL_GetError());
     SDL_Texture* t = SDL_CreateTextureFromSurface(renderer, s);
     if (t == NULL)
-        printf("Failed to generate texture");
+        printf("%s\n", SDL_GetError());
 
     return t;
 }

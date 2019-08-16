@@ -24,7 +24,7 @@ typedef struct {
 
 Tetromino* spawnTetromino();
 
-void moveTetromino(Tetromino* t, int x, int y);
+void moveTetromino(Tetromino** pt, int x, int y);
 static void moveTetrominoNoColl(Tetromino* t, int xOffset, int yOffset);
 void rotateTetromino(Tetromino* t, bool clockwise);
 bool checkCollision(Tetromino* t);
