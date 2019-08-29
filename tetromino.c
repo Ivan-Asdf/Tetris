@@ -4,11 +4,10 @@
 
 #include "world.h"
 #include "wallkick.h"
+#include "logger.h"
+#include "sound.h"
 
 #include "tetromino.h"
-
-#define NUMBER_OF_TETROMINOES 7
-#define TILES_PER_TETROMINO 4
 
 Tile spawn[NUMBER_OF_TETROMINOES][TILES_PER_TETROMINO] = 
 {
@@ -22,24 +21,29 @@ Tile spawn[NUMBER_OF_TETROMINOES][TILES_PER_TETROMINO] =
     {{1, 1}, {2, 0}, {1, 0}, {2, 1}},   // O
 };
 
+Tetromino* tSpawnSet = NULL;
+int currentT = -1;
 
 Tetromino* spawnTetromino()
 {
-    Tetromino* t = (Tetromino*)malloc(sizeof(Tetromino));
-
-    t->rotationState = 0;
-    t->type = rand() % 7;
-    printf("Spawn: ");
-    for (int i = 0; i < 4; ++i) 
-    {
-        t->tiles[i] = spawn[t->type][i];
-        t->tiles[i].x += 3;
-        t->tiles[i].y -= 2;
-        printf("(%d %d)", t->tiles[i].x, t->tiles[i].y);
+    if(currentT < 7 && currentT >= 0) {
+        return &tSpawnSet[currentT++];
     }
-    putchar('\n');
 
-    return t;
+    currentT = 0;
+    generateTetrominoSpawnSet();
+    return spawnTetromino();
+}
+
+Tetromino getGhostTetromino(const Tetromino* const t)
+{
+    Tetromino ghost = *t;
+
+    while (!checkCollision(&ghost))
+        moveTetrominoNoColl(&ghost, 0, 1);
+
+    moveTetrominoNoColl(&ghost, 0, -1);
+    return ghost;
 }
 
 void moveTetromino(Tetromino** pt, int x, int y)
@@ -47,37 +51,34 @@ void moveTetromino(Tetromino** pt, int x, int y)
     Tetromino temp = **pt;
     moveTetrominoNoColl(*pt, x, y);
 
-    // Hit locked tiles
-    if(y > 0 && checkCollision(*pt)) {
-        // Lock tetromino tiles
-        for (int i = 0; i < TILES_PER_TETROMINO; ++i) { 
-            int tileX = (*pt)->tiles[i].x;
-            int tileY = (*pt)->tiles[i].y;
-            printf("Lock tile: (%d %d)\n", tileX, tileY);
-            if (tileY < 0) {
-                printf("GameOver\n");
-                exit(0);
-            }
-            grid[temp.tiles[i].y][temp.tiles[i].x] = (*pt)->type+1;
-        }
-        // Spawn new tetromino
-        free(*pt);
-        *pt = spawnTetromino();
-    }
-    else if(checkCollision(*pt))
+    if(checkCollision(*pt)) {
         **pt = temp;
-}
+        // Hit locked tiles
+        if (y > 0) {
+            printf("%d\n", y);
+            lockTetromino(pt);
+            return;
+        }
+    }
 
-static void moveTetrominoNoColl(Tetromino* t, int xOffset, int yOffset) {
-    for(int i = 0; i < TILES_PER_TETROMINO; ++i)
-    {
-        t->tiles[i].x += xOffset;
-        t->tiles[i].y += yOffset;
+    if(x || y) {
+        logTetromino(*pt, "Moved: ");
+        playSound(MOVEMENT);
     }
 }
 
-void rotateTetromino(Tetromino* t, bool clockwise)
+void hardDropTetromino(Tetromino** pt)
 {
+    **pt = getGhostTetromino(*pt);
+    lockTetromino(pt);
+    playSound(HARD_DROP);
+}
+
+// Rotation: +1 (clockwise), -1(counterclockwise)
+void rotateTetromino(Tetromino* t, int rotation)
+{
+    if (rotation == 0 || (rotation != 1 && rotation != -1))
+        return;
     if (t->type == O)
         return;
 
@@ -91,21 +92,16 @@ void rotateTetromino(Tetromino* t, bool clockwise)
         // If vertical
         if (t->tiles[0].x == t->tiles[1].x) {
             if (t->tiles[0].y < t->tiles[1].y)
-                shiftV = 1;
+                shiftV = rotation;
             else
-                shiftV = -1;
+                shiftV = -rotation;
         }
         // If horizontal 
         else {
             if (t->tiles[0].x < t->tiles[1].x)
-                shiftH = 1; 
+                shiftH = rotation; 
             else
-                shiftH = -1;
-        }
-
-        if (!clockwise) {
-            shiftH = -shiftH;
-            shiftV = -shiftV;
+                shiftH = -rotation;
         }
 
         for(int i = 0; i < TILES_PER_TETROMINO; ++i) {
@@ -116,7 +112,7 @@ void rotateTetromino(Tetromino* t, bool clockwise)
 
     // Rotation
     int centerTileIndex = 0;
-    if(t->type == I && !clockwise)
+    if(t->type == I && rotation == -1)
         centerTileIndex = 1;
     Tile centerTile = t->tiles[centerTileIndex];
 
@@ -125,13 +121,8 @@ void rotateTetromino(Tetromino* t, bool clockwise)
 
         Tile* outerTile = &t->tiles[i]; 
         int deltaX, deltaY;
-        deltaX = centerTile.x - outerTile->x;
-        deltaY = centerTile.y - outerTile->y;
-
-        if(!clockwise) {
-            deltaX = -deltaX;
-            deltaY = -deltaY;
-        }
+        deltaX = (centerTile.x - outerTile->x) * rotation;
+        deltaY = (centerTile.y - outerTile->y) * rotation;
 
         outerTile->y = centerTile.y - deltaX;
         outerTile->x = centerTile.x + deltaY;
@@ -139,34 +130,49 @@ void rotateTetromino(Tetromino* t, bool clockwise)
 
     // Wall kicks
     int from = t->rotationState;
-    int to;
-    if (clockwise)
-        to = (from + 1) % 4;
-    else
-        to = (from != 0 ? from - 1 : 3);
+    int to = from + rotation;
+    if (to > 3) 
+        to = 0;
+    else if (to < 0)
+        to = 3;
 
     Offset* offset = getWallKickOffsets(from, to, t->type);
-    printf("Rotation: %d -> %d\n", from, to);
+    printf("Rotation: %d -> %d  Wallkick offsets tried:", from, to);
     Tetromino rotatedOrigTetromino = *t;
     for (int i = 0; i < 5; ++i) {
-        printf("(%d, %d)\n", offset[i].x, offset[i].y);
+        printf(" (%d, %d)", offset[i].x, offset[i].y);
         moveTetrominoNoColl(t, offset[i].x, offset[i].y);
         if (checkCollision(t) == true) {
             *t = rotatedOrigTetromino;
         }
         else {
             t->rotationState = to;
+            logTetromino(t, "  Final position: ");
+            playSound(ROTATION);
             return;
         }
     }
 
+    printf(" Rotation failed\n");
     *t = temp;
 }
 
-bool checkCollision(Tetromino* t) {
-    for (int i = 0; i < TILES_PER_TETROMINO; ++i) {
+void renderTetromino(Tetromino* t, SDL_Renderer* r, SDL_Texture* texture)
+{
+    for (int i = 0; i < TILES_PER_TETROMINO; ++i)
+    {
         int tileX = t->tiles[i].x;
         int tileY = t->tiles[i].y;
+        SDL_Rect textureRect = {32*t->type, 0, 32, 32};
+        SDL_Rect placementRect = {32*tileX, 32*tileY, 32, 32};
+        SDL_RenderCopy(r, texture, &textureRect, &placementRect);
+    }
+}
+
+static bool checkCollision(Tetromino* t) { 
+    for (int i = 0; i < TILES_PER_TETROMINO; ++i) {
+        int tileX = t->tiles[i].x;
+        int tileY = t->tiles[i].y; 
         if (tileX < 0)
             return true;
         else if (tileX > GAME_WIDTH - 1)
@@ -181,16 +187,67 @@ bool checkCollision(Tetromino* t) {
     return false;
 }
 
-
-void renderTetromino(Tetromino* t, SDL_Renderer* r, SDL_Texture* texture)
-{
-    for (int i = 0; i < TILES_PER_TETROMINO; ++i)
+static void moveTetrominoNoColl(Tetromino* t, int x, int y) {
+    for(int i = 0; i < TILES_PER_TETROMINO; ++i)
     {
-        int tileX = t->tiles[i].x;
-        int tileY = t->tiles[i].y;
-        SDL_Rect textureRect = {32*(t->type + 1), 0, 32, 32};
-        SDL_Rect placementRect = {32*tileX, 32*tileY, 32, 32};
-        SDL_RenderCopy(r, texture, &textureRect, &placementRect);
+        t->tiles[i].x += x;
+        t->tiles[i].y += y;
     }
 }
 
+static void lockTetromino(Tetromino** pt)
+{       
+    // Lock tetromino tiles
+    for (int i = 0; i < TILES_PER_TETROMINO; ++i) { 
+        int tileX = (*pt)->tiles[i].x;
+        int tileY = (*pt)->tiles[i].y;
+        if (tileY < 0) {
+            printf("GameOver\n");
+            playSound(GAME_OVER);
+            exit(0);
+        }
+        grid[(*pt)->tiles[i].y][(*pt)->tiles[i].x] = (*pt)->type+1;
+    }
+    logTetromino(*pt, "Locked: ");
+    // Spawn new tetromino
+    *pt = spawnTetromino();
+}
+
+static void generateTetrominoSpawnSet()
+{
+    if(tSpawnSet == NULL)
+        tSpawnSet = (Tetromino*)malloc(sizeof(Tetromino)*NUMBER_OF_TETROMINOES);
+
+    int set[NUMBER_OF_TETROMINOES] = {-1, -1, -1, -1, -1, -1, -1};
+    for (int i = 0; i < NUMBER_OF_TETROMINOES;)
+    {
+        int number = rand() % 7;        
+        bool unique = true;
+        for (int j = 0; j < NUMBER_OF_TETROMINOES; ++j)
+            if(number == set[j])
+                unique = false;
+        if(unique) {
+            set[i] = number;
+            ++i;
+        }
+    }
+
+    for (int i = 0; i < NUMBER_OF_TETROMINOES; ++i) {
+        Tetromino t;
+
+        t.rotationState = 0;
+        t.type  = set[i];
+        //printf("Spawn: ");
+        for (int j = 0; j < TILES_PER_TETROMINO; ++j) 
+        {
+            t.tiles[j] = spawn[t.type][j];
+            t.tiles[j].x += 3;
+            t.tiles[j].y -= 2;
+            //printf("(%d %d)", t.tiles[j].x, t.tiles[j].y);
+        }
+        //putchar('\n');
+
+        tSpawnSet[i] = t;
+    }
+    logSpawnSet(tSpawnSet);
+}

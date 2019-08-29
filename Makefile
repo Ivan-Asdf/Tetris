@@ -6,7 +6,7 @@ source = $(wildcard *.c)
 header = $(wildcard *.h)
 
 linux : $(source) $(header)
-	gcc -g $(source) -lSDL2
+	gcc -g $(source) -lSDL2 -lSDL2_image -lSDL2_mixer
 
 # DOESNT WORK!!! aplay library has no static build. It is reported as a bug years ago still not fixed.
 static : $(source) $(header)
