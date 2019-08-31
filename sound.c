@@ -1,9 +1,12 @@
+#include <stdio.h>
+
+#include "SDL2/SDL.h"
 #include "SDL2/SDL_mixer.h"
 
 #include "sound.h"
 
 static Mix_Music* tetris;
-static Mix_Chunk* sfx[4];
+static Mix_Chunk* sfx[6];
 
 void initSound()
 {
@@ -21,16 +24,16 @@ void initSound()
 
 void playMusic()
 {
-    Mix_VolumeMusic(15);
+    Mix_VolumeMusic(2);
     Mix_PlayMusic(tetris, -1);
 }
 
 void playSound(SoundEffect sound)
 {
     if (sound == GAME_OVER) {
-        Mix_HaltMusic();
-        Mix_PlayChannel(-1, sfx[sound], 0);
-        SDL_Delay(3000);
+		Mix_HaltMusic();
+        int channel = Mix_PlayChannel(-1, sfx[sound], 0);
+        while (Mix_Playing(channel) != 0);
     }
     else
         Mix_PlayChannel(-1, sfx[sound], 0);

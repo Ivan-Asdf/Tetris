@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <limits.h>
+#include <time.h>
 
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_image.h"
@@ -171,7 +172,7 @@ void initGame()
     SDL_Init(SDL_INIT_EVERYTHING); 
 
     window = SDL_CreateWindow("MUh Title",
-            800, 800,
+            800, 400,
             WINDOW_WIDTH, WINDOW_HEIGHT,
             SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);

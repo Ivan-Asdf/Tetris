@@ -5,3 +5,6 @@ build
 *.xcf
 *.out
 *.exe
+*.7z
+*.tar
+*.gz
